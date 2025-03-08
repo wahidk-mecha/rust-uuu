@@ -1,0 +1,3 @@
+[submodule "vendor/mfgtools"]
+	path = vendor/mfgtools
+	url = https://github.com/nxp-imx/mfgtools/
