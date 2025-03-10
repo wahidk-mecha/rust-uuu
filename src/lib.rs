@@ -12,7 +12,6 @@ mod tests {
     #[test]
     fn get_version() {
         let version_ptr: * const raw::c_char = unsafe { uuu_get_version_string() }.into();
-        //println!("uuu version: {:?}", unsafe { std::ffi::CStr::from_ptr(version_ptr) });
-        println!("lmfao");
+        println!("uuu version: {:?}", unsafe { std::ffi::CStr::from_ptr(version_ptr) });
     }
 }

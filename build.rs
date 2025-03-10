@@ -3,17 +3,27 @@
 use std::env;
 use std::path::PathBuf;
 
+use cmake::Config;
+
 fn main() {
     let system = env::var("SYSTEM").unwrap();
-    println!("cargo:rustc-link-search=./vendor/mfgtools/build/libuuu");
-    println!("cargo:rustc-link-search=../msvc/x64/Release/");
-    println!("cargo:rustc-link-search=../libusb/build/v143/x64/Release/lib");
-    println!("cargo:rustc-link-search=../zstd/build/VS2010/bin/x64_Release");
+
+    let dst = Config::new("./vendor/mfgtools/")
+        .define("CMAKE_BUILD_TYPE", "Release")
+        .build();
+
+    println!("cargo:rustc-link-search={}/build/libuuu", dst.display());
+    //println!("cargo:rustc-link-search=./vendor/mfgtools/build/libuuu");
+    //println!("cargo:rustc-link-search=/usr/lib/gcc/x86_64-pc-linux-gnu/14.2.1");
+    //println!("cargo:rustc-link-search=../msvc/x64/Release/");
+    //println!("cargo:rustc-link-search=../libusb/build/v143/x64/Release/lib");
+    //println!("cargo:rustc-link-search=../zstd/build/VS2010/bin/x64_Release");
 
     if system == "x86_64-darwin" || system == "aarch64-darwin" {
         println!("cargo:rustc-link-lib=c++");
-    } else if system == "x86_64-linux" || system == "aarch64-linux"  {
+    } else if system == "x86_64-linux" || system == "aarch64-linux" {
         println!("cargo:rustc-link-lib=stdc++");
+        //println!("cargo:rustc-link-lib=static=gcc");
     }
 
     if system == "x86_64-windows" {
@@ -40,7 +50,8 @@ fn main() {
         .header("wrapper.h")
         .clang_arg("-x")
         .clang_arg("c++")
-        .clang_arg("-std=c++14")
+        //.clang_arg("-stdlib=libstdc++")
+        //.clang_arg("-D_GLIBCXX_USE_CXX11_ABI=1")
         .clang_arg("-I./vendor/mfgtools/libuuu")
         .clang_arg("-I./vendor/mfgtools/libusb/libusb")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
