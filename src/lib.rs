@@ -2,11 +2,60 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use std::result::Result;
+use tabled::{Table, Tabled};
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-extern "C" fn print_usb_device(
+#[derive(Clone, Tabled)]
+pub struct UsbDevice {
+    #[tabled(rename = "Path")]
+    path: String,
+    #[tabled(rename = "Chip")]
+    chip: String,
+    #[tabled(rename = "Protocol")]
+    protocol: String,
+    vendor_id: String,
+    product_id: String,
+    bcd: String,
+    serial_no: String,
+}
+
+pub struct UsbDevices {
+    devices: Vec<UsbDevice>,
+}
+
+impl UsbDevices {
+    pub fn new() -> Self {
+        let mut devices = Vec::new();
+
+        unsafe {
+            let mut temp_devices = Vec::new();
+            let temp_devices_ptr = &mut temp_devices as *mut Vec<UsbDevice>;
+            uuu_for_each_devices(
+                Some(process_usb_device),
+                temp_devices_ptr as *mut ::std::os::raw::c_void,
+            );
+            devices = temp_devices;
+        }
+
+        UsbDevices { devices }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &UsbDevice> {
+        self.devices.iter()
+    }
+}
+
+impl IntoIterator for UsbDevices {
+    type Item = UsbDevice;
+    type IntoIter = std::vec::IntoIter<UsbDevice>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.devices.into_iter()
+    }
+}
+
+extern "C" fn process_usb_device(
     path: *const ::std::os::raw::c_char,
     chip: *const ::std::os::raw::c_char,
     pro: *const ::std::os::raw::c_char,
@@ -23,21 +72,38 @@ extern "C" fn print_usb_device(
         .to_str()
         .unwrap();
 
-    println!(
-        "\t{}\t {}\t {}\t 0x{:04X}\t0x{:04X}\t 0x{:04X}\t {}",
-        path_str, chip_str, pro_str, vid, pid, bcd, serial_str
-    );
+    let device = UsbDevice {
+        path: path_str.to_string(),
+        chip: chip_str.to_string(),
+        protocol: pro_str.to_string().trim_end_matches(":").to_string(),
+        vendor_id: format!("0x{:04X}", vid),
+        product_id: format!("0x{:04X}", pid),
+        bcd: format!("0x{:04X}", bcd),
+        serial_no: serial_str.to_string(),
+    };
+
+    unsafe {
+        let devices = &mut *(_p as *mut Vec<UsbDevice>);
+        devices.push(device);
+    }
 
     0
 }
 
-pub fn print_lsusb() {
-    println!("Connected Known USB Devices");
-    println!("\tPath\t Chip\t Pro\t Vid\t Pid\t BcdVersion\t Serial_no");
-    println!("\t====================================================================");
-    unsafe {
-        uuu_for_each_devices(Some(print_usb_device), std::ptr::null_mut());
+pub fn print_devices() {
+    let usb_devices = UsbDevices::new();
+    let num_devices = usb_devices.iter().count();
+    if num_devices == 0 {
+        println!("No compatible USB devices found.");
+        return;
     }
+
+    let mut table = Table::new(usb_devices);
+    table
+        .with(tabled::settings::Style::rounded())
+        .with(tabled::settings::Extract::columns(0..3));
+    println!("Found {} compatible USB device(s):", num_devices);
+    println!("{}\n", table);
 }
 
 pub fn run_command(command: &str) -> Result<(), String> {
@@ -51,14 +117,5 @@ pub fn run_command(command: &str) -> Result<(), String> {
                 result
             )),
         }
-    }
-}
-
-// TODO: Get only Mecha devices. Look at libusb device descriptor.
-pub fn get_usb_device_list() {
-    unsafe {
-        let mut list: *mut *mut libusb_device = std::ptr::null_mut();
-        let ctx = std::ptr::null_mut();
-        let ret = libusb_get_device_list(ctx, &mut list);
     }
 }
