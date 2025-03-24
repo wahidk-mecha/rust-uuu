@@ -106,6 +106,11 @@ pub fn print_devices() {
     println!("{}\n", table);
 }
 
+pub fn get_devices() -> Vec<UsbDevice> {
+    let usb_devices = UsbDevices::new();
+    usb_devices.into_iter().collect()
+}
+
 pub fn run_command(command: &str) -> Result<(), String> {
     let c_command = std::ffi::CString::new(command).unwrap();
     unsafe {
@@ -113,9 +118,18 @@ pub fn run_command(command: &str) -> Result<(), String> {
         match result {
             0 => Ok(()),
             _ => Err(format!(
-                "Command execution failed with error code: {}",
-                result
+                "Command execution failed: {}",
+                get_last_error() 
             )),
         }
     }
+}
+
+pub fn get_last_error() -> String {
+    let mut error_str;
+    unsafe {
+        let error: *const ::std::os::raw::c_char = uuu_get_last_err_string();
+        error_str = std::ffi::CStr::from_ptr(error).to_str().unwrap().to_string();
+    }
+    error_str
 }
